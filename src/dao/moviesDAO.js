@@ -61,7 +61,16 @@ export default class MoviesDAO {
       // and _id. Do not put a limit in your own implementation, the limit
       // here is only included to avoid sending 46000 documents down the
       // wire.
-      cursor = await movies.find().limit(1)
+
+      let filter = countries
+      cursor = await movies.find(
+        { countries: { $in: filter } },
+        {
+          projection: {
+            title: 1,
+          },
+        },
+      )
     } catch (e) {
       console.error(`Unable to issue find command, ${e}`)
       return []
@@ -116,7 +125,7 @@ export default class MoviesDAO {
 
     // TODO Ticket: Text and Subfield Search
     // Construct a query that will search for the chosen genre.
-    const query = {}
+    const query = { genres: { $in: searchGenre } }
     const project = {}
     const sort = DEFAULT_SORT
 
@@ -259,11 +268,11 @@ export default class MoviesDAO {
 
     // TODO Ticket: Paging
     // Use the cursor to only return the movies that belong on the current page
-    const displayCursor = cursor.limit(moviesPerPage)
+    const displayCursor = cursor.skip(moviesPerPage * page).limit(moviesPerPage)
 
     try {
       const moviesList = await displayCursor.toArray()
-      const totalNumMovies = page === 0 ? await movies.countDocuments(query) : 0
+      const totalNumMovies = await movies.countDocuments(query)
 
       return { moviesList, totalNumMovies }
     } catch (e) {
@@ -296,9 +305,9 @@ export default class MoviesDAO {
       const pipeline = [
         {
           $match: {
-            _id: ObjectId(id)
-          }
-        }
+            _id: ObjectId(id),
+          },
+        },
       ]
       return await movies.aggregate(pipeline).next()
     } catch (e) {
